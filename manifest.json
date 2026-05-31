@@ -1,0 +1,19 @@
+{
+  "name": "Wari — Suivi de dépenses",
+  "short_name": "Wari",
+  "description": "Suivi de dépenses personnelles",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111827",
+  "theme_color": "#6C63FF",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
