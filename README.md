@@ -48,6 +48,3 @@ Ouvre [https://karim-dkt.github.io/Wari/](https://karim-dkt.github.io/Wari/) dan
 - **Android** : Chrome → menu ⋮ → *Ajouter à l'écran d'accueil*
 - **iOS** : Safari → partage ⬆ → *Sur l'écran d'accueil*
 
-## Licence
-
-Ce projet est distribué sous licence [GNU GPL v3](LICENSE).
