@@ -43,7 +43,7 @@ Chaque push sur `master` déclenche automatiquement le build et le déploiement 
 
 ## Utilisation sur mobile
 
-Ouvre [https://karim-dkt.github.io/Wari/](https://karim-dkt.github.io/Wari/) dans ton navigateur mobile et installe l'app :
+Ouvre [https://karim-dkt.github.io/Wari/](http://agsv-app.me/Wari/) dans ton navigateur mobile et installe l'app :
 
 - **Android** : Chrome → menu ⋮ → *Ajouter à l'écran d'accueil*
 - **iOS** : Safari → partage ⬆ → *Sur l'écran d'accueil*
