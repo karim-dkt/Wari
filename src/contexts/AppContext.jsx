@@ -23,6 +23,7 @@ export function AppProvider({ children }) {
 
   const [depenses,         setDepenses]         = useState([])
   const [prets,            setPrets]            = useState([])
+  const [recettes,         setRecettes]         = useState([])
   const [categoriesCustom, setCategoriesCustom] = useState([])
   const [devise,           setDevise]           = useState('MAD')
   const [loading,          setLoading]          = useState(true)
@@ -31,7 +32,7 @@ export function AppProvider({ children }) {
     if (!user) return
     setLoading(true)
 
-    const [depRes, catRes, prefRes, pretRes] = await Promise.all([
+    const [depRes, catRes, prefRes, pretRes, recRes] = await Promise.all([
       supabase.from('depenses')
         .select('*')
         .eq('user_id', user.id)
@@ -48,12 +49,17 @@ export function AppProvider({ children }) {
         .select('*')
         .eq('user_id', user.id)
         .order('date', { ascending: false }),
+      supabase.from('recettes')
+        .select('*, ingredients(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
     ])
 
     if (depRes.data)  setDepenses(depRes.data)
     if (catRes.data)  setCategoriesCustom(catRes.data.map(c => c.nom))
     if (prefRes.data) setDevise(prefRes.data.devise)
     if (pretRes.data) setPrets(pretRes.data)
+    if (recRes.data)  setRecettes(recRes.data)
 
     setLoading(false)
   }, [user])
@@ -64,6 +70,7 @@ export function AppProvider({ children }) {
     } else {
       setDepenses([])
       setPrets([])
+      setRecettes([])
       setCategoriesCustom([])
       setDevise('MAD')
       setLoading(false)
@@ -157,17 +164,73 @@ export function AppProvider({ children }) {
     return { error }
   }
 
+  const ajouterRecette = async (data, ingredients) => {
+    const { data: row, error } = await supabase
+      .from('recettes')
+      .insert({ ...data, user_id: user.id })
+      .select()
+      .single()
+    if (error || !row) return { error }
+
+    if (ingredients.length > 0) {
+      const { error: ingErr } = await supabase
+        .from('ingredients')
+        .insert(ingredients.map(ing => ({ ...ing, recette_id: row.id })))
+      if (ingErr) return { error: ingErr }
+    }
+
+    const { data: full } = await supabase
+      .from('recettes')
+      .select('*, ingredients(*)')
+      .eq('id', row.id)
+      .single()
+
+    setRecettes(prev => [full ?? { ...row, ingredients: [] }, ...prev])
+    return { data: row, error: null }
+  }
+
+  const modifierRecette = async (id, data, ingredients) => {
+    const { error: upErr } = await supabase
+      .from('recettes').update(data).eq('id', id)
+    if (upErr) return { error: upErr }
+
+    await supabase.from('ingredients').delete().eq('recette_id', id)
+
+    if (ingredients.length > 0) {
+      const { error: insErr } = await supabase
+        .from('ingredients')
+        .insert(ingredients.map(ing => ({ ...ing, recette_id: id })))
+      if (insErr) return { error: insErr }
+    }
+
+    const { data: full } = await supabase
+      .from('recettes')
+      .select('*, ingredients(*)')
+      .eq('id', id)
+      .single()
+
+    if (full) setRecettes(prev => prev.map(r => r.id === id ? full : r))
+    return { error: null }
+  }
+
+  const supprimerRecette = async (id) => {
+    const { error } = await supabase.from('recettes').delete().eq('id', id)
+    if (!error) setRecettes(prev => prev.filter(r => r.id !== id))
+    return { error }
+  }
+
   const symboleDevise = DEVISES.find(d => d.code === devise)?.symbole ?? devise
 
   return (
     <AppContext.Provider value={{
-      depenses, prets, categories, categoriesCustom,
+      depenses, prets, recettes, categories, categoriesCustom,
       devise, symboleDevise, DEVISES,
       loading,
       chargerDonnees,
       ajouterDepense, validerBrouillon, supprimerDepense,
       ajouterCategorie, supprimerCategorie, mettreAJourDevise,
       ajouterPret, marquerRembourse, supprimerPret,
+      ajouterRecette, modifierRecette, supprimerRecette,
     }}>
       {children}
     </AppContext.Provider>

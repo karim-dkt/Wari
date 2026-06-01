@@ -1,8 +1,9 @@
 const TABS = [
-  { id: 'brouillon',  label: 'Brouillon',   icon: '✏️' },
-  { id: 'depenses',   label: 'Dépenses',    icon: '📋' },
-  { id: 'prets',      label: 'Prêts',       icon: '🤝' },
-  { id: 'parametres', label: 'Paramètres',  icon: '⚙️' },
+  { id: 'brouillon',  label: 'Brouillon',  icon: '✏️' },
+  { id: 'depenses',   label: 'Dépenses',   icon: '📋' },
+  { id: 'prets',      label: 'Prêts',      icon: '🤝' },
+  { id: 'recettes',   label: 'Recettes',   icon: '🍳' },
+  { id: 'parametres', label: 'Réglages',   icon: '⚙️' },
 ]
 
 export default function Navigation({ onglet, setOnglet }) {

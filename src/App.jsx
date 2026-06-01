@@ -7,6 +7,7 @@ import Navigation from './components/Navigation'
 import Brouillon from './components/Brouillon'
 import Depenses from './components/Depenses'
 import Prets from './components/Prets'
+import Recettes from './components/Recettes'
 import Parametres from './components/Parametres'
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
           {onglet === 'brouillon'   && <Brouillon />}
           {onglet === 'depenses'    && <Depenses />}
           {onglet === 'prets'       && <Prets />}
+          {onglet === 'recettes'    && <Recettes />}
           {onglet === 'parametres'  && <Parametres />}
         </main>
         <Navigation onglet={onglet} setOnglet={setOnglet} />

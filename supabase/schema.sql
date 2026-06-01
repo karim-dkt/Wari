@@ -105,3 +105,62 @@ CREATE POLICY "prets_update" ON public.prets
 
 CREATE POLICY "prets_delete" ON public.prets
   FOR DELETE USING (auth.uid() = user_id);
+
+-- ── Tables recettes & ingrédients ────────────
+
+CREATE TABLE IF NOT EXISTS public.recettes (
+  id                uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  nom               text        NOT NULL,
+  tags              text[]      NOT NULL DEFAULT '{}',
+  temps_preparation integer,
+  instructions      text,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.ingredients (
+  id         uuid    PRIMARY KEY DEFAULT gen_random_uuid(),
+  recette_id uuid    NOT NULL REFERENCES public.recettes(id) ON DELETE CASCADE,
+  nom        text    NOT NULL,
+  quantite   text    NOT NULL DEFAULT '1',
+  unite      text    NOT NULL DEFAULT 'pièce',
+  prix       numeric
+);
+
+CREATE INDEX IF NOT EXISTS recettes_user_id_idx    ON public.recettes(user_id);
+CREATE INDEX IF NOT EXISTS ingredients_recette_idx ON public.ingredients(recette_id);
+
+ALTER TABLE public.recettes    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ingredients ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "recettes_select" ON public.recettes
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "recettes_insert" ON public.recettes
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "recettes_update" ON public.recettes
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "recettes_delete" ON public.recettes
+  FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "ingredients_select" ON public.ingredients
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.recettes WHERE id = recette_id AND user_id = auth.uid())
+  );
+
+CREATE POLICY "ingredients_insert" ON public.ingredients
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.recettes WHERE id = recette_id AND user_id = auth.uid())
+  );
+
+CREATE POLICY "ingredients_update" ON public.ingredients
+  FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.recettes WHERE id = recette_id AND user_id = auth.uid())
+  );
+
+CREATE POLICY "ingredients_delete" ON public.ingredients
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.recettes WHERE id = recette_id AND user_id = auth.uid())
+  );
