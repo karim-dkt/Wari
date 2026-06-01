@@ -85,6 +85,17 @@ body {
   border-radius: 999px;
 }
 
+.offline-banner {
+  flex-shrink: 0;
+  background: var(--warning);
+  color: #000;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  letter-spacing: 0.01em;
+}
+
 .app-main {
   flex: 1;
   overflow-y: auto;
@@ -576,3 +587,134 @@ select {
 ::-webkit-scrollbar       { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surf2); border-radius: 2px; }
+
+/* ── Expense detail drawer ───────────────────── */
+.item-depense-cliquable {
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.item-depense-cliquable:hover {
+  background: var(--surf);
+  border-color: var(--border);
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.drawer {
+  background: var(--surf);
+  border-radius: var(--r) var(--r) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  padding: 0.75rem 1.25rem 2rem;
+  width: 100%;
+  max-width: 600px;
+  animation: drawerUp 0.22s ease;
+}
+
+@keyframes drawerUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@media (min-width: 600px) {
+  .drawer-overlay { align-items: center; }
+  .drawer {
+    border-radius: var(--r);
+    border: 1px solid var(--border);
+    max-width: 420px;
+    padding: 1.5rem;
+    animation: modalIn 0.18s ease;
+  }
+  @keyframes modalIn {
+    from { transform: scale(0.96); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+}
+
+.drawer-handle {
+  width: 2.5rem;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 1rem;
+}
+
+@media (min-width: 600px) {
+  .drawer-handle { display: none; }
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.drawer-montant {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 1.25rem;
+}
+
+.drawer-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.drawer-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.drawer-value {
+  font-size: 0.9375rem;
+  text-align: right;
+}
+
+/* ── Prêts ───────────────────────────────────── */
+.pret-rembourse {
+  opacity: 0.55;
+}
+
+.pret-statut {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  white-space: nowrap;
+}
+
+.pret-statut.en-attente {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.pret-statut.rembourse {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+}
+
+.prets-summary {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  text-align: center;
+}

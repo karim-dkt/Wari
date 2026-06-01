@@ -6,6 +6,7 @@ import Auth from './components/Auth'
 import Navigation from './components/Navigation'
 import Brouillon from './components/Brouillon'
 import Depenses from './components/Depenses'
+import Prets from './components/Prets'
 import Parametres from './components/Parametres'
 
 export default function App() {
@@ -30,9 +31,15 @@ export default function App() {
           <h1 className="app-title">Wari</h1>
           {!isOnline && <span className="offline-badge">Hors ligne</span>}
         </header>
+        {!isOnline && (
+          <div className="offline-banner">
+            Hors connexion — affichage des données en cache
+          </div>
+        )}
         <main className="app-main">
           {onglet === 'brouillon'   && <Brouillon />}
           {onglet === 'depenses'    && <Depenses />}
+          {onglet === 'prets'       && <Prets />}
           {onglet === 'parametres'  && <Parametres />}
         </main>
         <Navigation onglet={onglet} setOnglet={setOnglet} />

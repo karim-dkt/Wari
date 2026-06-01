@@ -75,3 +75,33 @@ CREATE POLICY "preferences_insert" ON public.preferences
 
 CREATE POLICY "preferences_update" ON public.preferences
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- ── Table prets ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.prets (
+  id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  personne    text        NOT NULL,
+  montant     numeric     NOT NULL CHECK (montant > 0),
+  date        date        NOT NULL DEFAULT CURRENT_DATE,
+  description text,
+  statut      text        NOT NULL DEFAULT 'en_attente' CHECK (statut IN ('en_attente', 'remboursé')),
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS prets_user_id_idx ON public.prets(user_id);
+CREATE INDEX IF NOT EXISTS prets_statut_idx  ON public.prets(user_id, statut);
+
+ALTER TABLE public.prets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "prets_select" ON public.prets
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "prets_insert" ON public.prets
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "prets_update" ON public.prets
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "prets_delete" ON public.prets
+  FOR DELETE USING (auth.uid() = user_id);

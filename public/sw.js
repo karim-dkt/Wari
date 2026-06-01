@@ -1,6 +1,13 @@
-const CACHE = 'wari-v1'
+const CACHE = 'wari-v2'
 
-self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('install', (e) => {
+  // Pré-cache l'app shell au premier chargement pour garantir l'accès hors connexion
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(cache => cache.add('./'))
+      .then(() => self.skipWaiting())
+  )
+})
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -41,12 +48,15 @@ self.addEventListener('fetch', (e) => {
           caches.open(CACHE).then(c => c.put(request, clone))
           return res
         })
-        .catch(() => caches.match(request) || caches.match('./index.html'))
+        .catch(() =>
+          caches.match(request)
+            .then(cached => cached || caches.match('./') || caches.match('./index.html'))
+        )
     )
     return
   }
 
-  // Ressources statiques : cache en priorité, réseau en secours
+  // Ressources statiques : cache en priorité, réseau en secours + mise en cache
   e.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached

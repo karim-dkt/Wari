@@ -1,6 +1,7 @@
 const TABS = [
   { id: 'brouillon',  label: 'Brouillon',   icon: '✏️' },
   { id: 'depenses',   label: 'Dépenses',    icon: '📋' },
+  { id: 'prets',      label: 'Prêts',       icon: '🤝' },
   { id: 'parametres', label: 'Paramètres',  icon: '⚙️' },
 ]
 

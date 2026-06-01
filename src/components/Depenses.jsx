@@ -1,10 +1,53 @@
 import { useState } from 'react'
 import { useApp } from '../contexts/AppContext'
 
+function DetailDrawer({ depense, onClose, onSupprimer, symboleDevise }) {
+  return (
+    <div className="drawer-overlay" onClick={onClose}>
+      <div className="drawer" onClick={e => e.stopPropagation()}>
+        <div className="drawer-handle" />
+        <div className="drawer-header">
+          <span className="tag">{depense.categorie}</span>
+          <button className="btn-icon" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+        <div className="drawer-montant">
+          {Number(depense.montant).toLocaleString('fr-FR')} {depense.devise}
+        </div>
+        {depense.description && (
+          <div className="drawer-detail">
+            <span className="drawer-label">Description</span>
+            <span className="drawer-value">{depense.description}</span>
+          </div>
+        )}
+        <div className="drawer-detail">
+          <span className="drawer-label">Date</span>
+          <span className="drawer-value">{depense.date}</span>
+        </div>
+        <div className="drawer-detail">
+          <span className="drawer-label">Heure</span>
+          <span className="drawer-value">{depense.heure?.slice(0, 5)}</span>
+        </div>
+        <div className="drawer-detail">
+          <span className="drawer-label">Devise</span>
+          <span className="drawer-value">{depense.devise}</span>
+        </div>
+        <button
+          className="btn-danger"
+          style={{ marginTop: '1rem', width: '100%' }}
+          onClick={() => { onSupprimer(depense.id); onClose() }}
+        >
+          Supprimer cette dépense
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Depenses() {
   const { depenses, supprimerDepense, symboleDevise } = useApp()
-  const [dateDebut, setDateDebut] = useState('')
-  const [dateFin,   setDateFin]   = useState('')
+  const [dateDebut,  setDateDebut]  = useState('')
+  const [dateFin,    setDateFin]    = useState('')
+  const [selectee,   setSelectee]   = useState(null)
 
   const enregistrees = depenses.filter(d => !d.brouillon)
 
@@ -78,10 +121,16 @@ export default function Depenses() {
         ) : (
           <ul className="liste-depenses">
             {filtrees.map(d => (
-              <li key={d.id} className="item-depense">
+              <li
+                key={d.id}
+                className="item-depense item-depense-cliquable"
+                onClick={() => setSelectee(d)}
+              >
                 <div className="item-info">
                   <span className="tag">{d.categorie}</span>
-                  {d.description && <span className="item-description">{d.description}</span>}
+                  {d.description && (
+                    <span className="item-description">{d.description}</span>
+                  )}
                   <span className="item-date">{d.date} · {d.heure?.slice(0, 5)}</span>
                 </div>
                 <div className="item-right">
@@ -90,7 +139,7 @@ export default function Depenses() {
                   </span>
                   <button
                     className="btn-icon"
-                    onClick={() => supprimerDepense(d.id)}
+                    onClick={e => { e.stopPropagation(); supprimerDepense(d.id) }}
                     title="Supprimer"
                   >✕</button>
                 </div>
@@ -99,6 +148,15 @@ export default function Depenses() {
           </ul>
         )}
       </section>
+
+      {selectee && (
+        <DetailDrawer
+          depense={selectee}
+          onClose={() => setSelectee(null)}
+          onSupprimer={supprimerDepense}
+          symboleDevise={symboleDevise}
+        />
+      )}
     </div>
   )
 }

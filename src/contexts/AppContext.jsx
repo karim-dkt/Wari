@@ -21,16 +21,17 @@ export function AppProvider({ children }) {
   const isOnline    = useOnlineStatus()
   const prevOnline  = useRef(isOnline)
 
-  const [depenses,        setDepenses]        = useState([])
+  const [depenses,         setDepenses]         = useState([])
+  const [prets,            setPrets]            = useState([])
   const [categoriesCustom, setCategoriesCustom] = useState([])
-  const [devise,          setDevise]          = useState('MAD')
-  const [loading,         setLoading]         = useState(true)
+  const [devise,           setDevise]           = useState('MAD')
+  const [loading,          setLoading]          = useState(true)
 
   const chargerDonnees = useCallback(async () => {
     if (!user) return
     setLoading(true)
 
-    const [depRes, catRes, prefRes] = await Promise.all([
+    const [depRes, catRes, prefRes, pretRes] = await Promise.all([
       supabase.from('depenses')
         .select('*')
         .eq('user_id', user.id)
@@ -43,28 +44,32 @@ export function AppProvider({ children }) {
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle(),
+      supabase.from('prets')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false }),
     ])
 
     if (depRes.data)  setDepenses(depRes.data)
     if (catRes.data)  setCategoriesCustom(catRes.data.map(c => c.nom))
     if (prefRes.data) setDevise(prefRes.data.devise)
+    if (pretRes.data) setPrets(pretRes.data)
 
     setLoading(false)
   }, [user])
 
-  // Chargement initial
   useEffect(() => {
     if (user) {
       chargerDonnees()
     } else {
       setDepenses([])
+      setPrets([])
       setCategoriesCustom([])
       setDevise('MAD')
       setLoading(false)
     }
   }, [user, chargerDonnees])
 
-  // Rechargement automatique à la reconnexion
   useEffect(() => {
     if (isOnline && !prevOnline.current && user) {
       chargerDonnees()
@@ -125,16 +130,44 @@ export function AppProvider({ children }) {
     return { error }
   }
 
+  const ajouterPret = async (data) => {
+    const { data: row, error } = await supabase
+      .from('prets')
+      .insert({ ...data, user_id: user.id })
+      .select()
+      .single()
+    if (!error && row) setPrets(prev => [row, ...prev])
+    return { data: row, error }
+  }
+
+  const marquerRembourse = async (id) => {
+    const { data: row, error } = await supabase
+      .from('prets')
+      .update({ statut: 'remboursé' })
+      .eq('id', id)
+      .select()
+      .single()
+    if (!error && row) setPrets(prev => prev.map(p => p.id === id ? row : p))
+    return { error }
+  }
+
+  const supprimerPret = async (id) => {
+    const { error } = await supabase.from('prets').delete().eq('id', id)
+    if (!error) setPrets(prev => prev.filter(p => p.id !== id))
+    return { error }
+  }
+
   const symboleDevise = DEVISES.find(d => d.code === devise)?.symbole ?? devise
 
   return (
     <AppContext.Provider value={{
-      depenses, categories, categoriesCustom,
+      depenses, prets, categories, categoriesCustom,
       devise, symboleDevise, DEVISES,
       loading,
       chargerDonnees,
       ajouterDepense, validerBrouillon, supprimerDepense,
       ajouterCategorie, supprimerCategorie, mettreAJourDevise,
+      ajouterPret, marquerRembourse, supprimerPret,
     }}>
       {children}
     </AppContext.Provider>
