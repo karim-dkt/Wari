@@ -4,14 +4,17 @@ import { useApp } from '../contexts/AppContext'
 import { CATEGORIES_PAR_DEFAUT } from '../contexts/AppContext'
 
 export default function Parametres() {
-  const { signOut, user }   = useAuth()
+  const { signOut, user } = useAuth()
   const {
     devise, DEVISES, mettreAJourDevise,
-    categoriesCustom, ajouterCategorie, supprimerCategorie,
+    categoriesCustom, ajouterCategorie, supprimerCategorie, renommerCategorie,
   } = useApp()
 
   const [nouvelleCategorie, setNouvelleCategorie] = useState('')
   const [erreur,            setErreur]            = useState('')
+  const [editingCat,        setEditingCat]        = useState(null)
+  const [editNom,           setEditNom]           = useState('')
+  const [editErreur,        setEditErreur]        = useState('')
 
   const handleAjouter = async (e) => {
     e.preventDefault()
@@ -21,6 +24,20 @@ export default function Parametres() {
     const { error } = await ajouterCategorie(nom)
     if (error) setErreur(error.message)
     else setNouvelleCategorie('')
+  }
+
+  const handleCommencerEdition = (cat) => {
+    setEditingCat(cat)
+    setEditNom(cat)
+    setEditErreur('')
+  }
+
+  const handleRenommer = async (e) => {
+    e.preventDefault()
+    setEditErreur('')
+    const { error } = await renommerCategorie(editingCat, editNom)
+    if (error) setEditErreur(error.message)
+    else setEditingCat(null)
   }
 
   return (
@@ -54,14 +71,34 @@ export default function Parametres() {
           <div className="categories-list">
             {categoriesCustom.map(cat => (
               <div key={cat} className="categorie-item">
-                <span>{cat}</span>
-                <button className="btn-icon" onClick={() => supprimerCategorie(cat)}>✕</button>
+                {editingCat === cat ? (
+                  <form onSubmit={handleRenommer} className="categorie-edit-form">
+                    <input
+                      value={editNom}
+                      onChange={e => setEditNom(e.target.value)}
+                      autoFocus
+                      maxLength={50}
+                    />
+                    <button type="submit" className="btn-icon success" title="Valider">✓</button>
+                    <button type="button" className="btn-icon" onClick={() => setEditingCat(null)} title="Annuler">✕</button>
+                  </form>
+                ) : (
+                  <>
+                    <span>{cat}</span>
+                    <div className="item-actions">
+                      <button className="btn-icon edit" onClick={() => handleCommencerEdition(cat)} title="Renommer">✏</button>
+                      <button className="btn-icon" onClick={() => supprimerCategorie(cat)} title="Supprimer">✕</button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
         ) : (
           <p className="vide" style={{ padding: '0.5rem 0' }}>Aucune catégorie personnalisée.</p>
         )}
+
+        {editErreur && <p className="erreur">{editErreur}</p>}
 
         <form onSubmit={handleAjouter} className="form-row">
           <input

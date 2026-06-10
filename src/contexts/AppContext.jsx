@@ -17,12 +17,13 @@ export const DEVISES = [
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  const { user }    = useAuth()
-  const isOnline    = useOnlineStatus()
-  const prevOnline  = useRef(isOnline)
+  const { user }   = useAuth()
+  const isOnline   = useOnlineStatus()
+  const prevOnline = useRef(isOnline)
 
   const [depenses,         setDepenses]         = useState([])
   const [prets,            setPrets]            = useState([])
+  const [paiementsPret,    setPaiementsPret]    = useState([])
   const [recettes,         setRecettes]         = useState([])
   const [categoriesCustom, setCategoriesCustom] = useState([])
   const [devise,           setDevise]           = useState('MAD')
@@ -32,7 +33,7 @@ export function AppProvider({ children }) {
     if (!user) return
     setLoading(true)
 
-    const [depRes, catRes, prefRes, pretRes, recRes] = await Promise.all([
+    const [depRes, catRes, prefRes, pretRes, recRes, paiRes] = await Promise.all([
       supabase.from('depenses')
         .select('*')
         .eq('user_id', user.id)
@@ -53,6 +54,10 @@ export function AppProvider({ children }) {
         .select('*, ingredients(*)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
+      supabase.from('paiements_pret')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false }),
     ])
 
     if (depRes.data)  setDepenses(depRes.data)
@@ -60,6 +65,7 @@ export function AppProvider({ children }) {
     if (prefRes.data) setDevise(prefRes.data.devise)
     if (pretRes.data) setPrets(pretRes.data)
     if (recRes.data)  setRecettes(recRes.data)
+    if (paiRes.data)  setPaiementsPret(paiRes.data)
 
     setLoading(false)
   }, [user])
@@ -70,6 +76,7 @@ export function AppProvider({ children }) {
     } else {
       setDepenses([])
       setPrets([])
+      setPaiementsPret([])
       setRecettes([])
       setCategoriesCustom([])
       setDevise('MAD')
@@ -130,6 +137,24 @@ export function AppProvider({ children }) {
     return { error }
   }
 
+  const renommerCategorie = async (ancienNom, nouveauNom) => {
+    const trim = nouveauNom.trim()
+    if (!trim || trim === ancienNom) return { error: null }
+    if (categories.includes(trim)) return { error: { message: 'Cette catégorie existe déjà' } }
+    const { error } = await supabase.from('categories')
+      .update({ nom: trim })
+      .eq('user_id', user.id)
+      .eq('nom', ancienNom)
+    if (error) return { error }
+    await supabase.from('depenses')
+      .update({ categorie: trim })
+      .eq('user_id', user.id)
+      .eq('categorie', ancienNom)
+    setCategoriesCustom(prev => prev.map(c => c === ancienNom ? trim : c))
+    setDepenses(prev => prev.map(d => d.categorie === ancienNom ? { ...d, categorie: trim } : d))
+    return { error: null }
+  }
+
   const mettreAJourDevise = async (nouvelleDevise) => {
     const { error } = await supabase.from('preferences')
       .upsert({ user_id: user.id, devise: nouvelleDevise })
@@ -160,7 +185,36 @@ export function AppProvider({ children }) {
 
   const supprimerPret = async (id) => {
     const { error } = await supabase.from('prets').delete().eq('id', id)
-    if (!error) setPrets(prev => prev.filter(p => p.id !== id))
+    if (!error) {
+      setPrets(prev => prev.filter(p => p.id !== id))
+      setPaiementsPret(prev => prev.filter(p => p.pret_id !== id))
+    }
+    return { error }
+  }
+
+  const ajouterPaiementPret = async (pretId, montant, date, note) => {
+    const { data: row, error } = await supabase
+      .from('paiements_pret')
+      .insert({ pret_id: pretId, user_id: user.id, montant: Number(montant), date, note: note || null })
+      .select()
+      .single()
+    if (error || !row) return { data: null, error }
+    setPaiementsPret(prev => [row, ...prev])
+    const { data: tous } = await supabase
+      .from('paiements_pret').select('montant').eq('pret_id', pretId)
+    if (tous) {
+      const totalPaye = tous.reduce((s, p) => s + Number(p.montant), 0)
+      const pret = prets.find(p => p.id === pretId)
+      if (pret && pret.statut === 'en_attente' && totalPaye >= Number(pret.montant)) {
+        await marquerRembourse(pretId)
+      }
+    }
+    return { data: row, error: null }
+  }
+
+  const supprimerPaiementPret = async (id) => {
+    const { error } = await supabase.from('paiements_pret').delete().eq('id', id)
+    if (!error) setPaiementsPret(prev => prev.filter(p => p.id !== id))
     return { error }
   }
 
@@ -223,13 +277,14 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      depenses, prets, recettes, categories, categoriesCustom,
+      depenses, prets, paiementsPret, recettes, categories, categoriesCustom,
       devise, symboleDevise, DEVISES,
       loading,
       chargerDonnees,
       ajouterDepense, validerBrouillon, supprimerDepense,
-      ajouterCategorie, supprimerCategorie, mettreAJourDevise,
+      ajouterCategorie, supprimerCategorie, renommerCategorie, mettreAJourDevise,
       ajouterPret, marquerRembourse, supprimerPret,
+      ajouterPaiementPret, supprimerPaiementPret,
       ajouterRecette, modifierRecette, supprimerRecette,
     }}>
       {children}

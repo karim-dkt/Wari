@@ -66,6 +66,9 @@ CREATE POLICY "categories_insert" ON public.categories
 CREATE POLICY "categories_delete" ON public.categories
   FOR DELETE USING (auth.uid() = user_id);
 
+CREATE POLICY "categories_update" ON public.categories
+  FOR UPDATE USING (auth.uid() = user_id);
+
 -- preferences
 CREATE POLICY "preferences_select" ON public.preferences
   FOR SELECT USING (auth.uid() = user_id);
@@ -164,3 +167,32 @@ CREATE POLICY "ingredients_delete" ON public.ingredients
   FOR DELETE USING (
     EXISTS (SELECT 1 FROM public.recettes WHERE id = recette_id AND user_id = auth.uid())
   );
+
+-- ── Table paiements_pret ──────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.paiements_pret (
+  id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  pret_id    uuid        NOT NULL REFERENCES public.prets(id) ON DELETE CASCADE,
+  user_id    uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  montant    numeric     NOT NULL CHECK (montant > 0),
+  date       date        NOT NULL DEFAULT CURRENT_DATE,
+  note       text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS paiements_pret_pret_id_idx ON public.paiements_pret(pret_id);
+CREATE INDEX IF NOT EXISTS paiements_pret_user_id_idx ON public.paiements_pret(user_id);
+
+ALTER TABLE public.paiements_pret ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "paiements_pret_select" ON public.paiements_pret
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "paiements_pret_insert" ON public.paiements_pret
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "paiements_pret_update" ON public.paiements_pret
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "paiements_pret_delete" ON public.paiements_pret
+  FOR DELETE USING (auth.uid() = user_id);

@@ -1,6 +1,58 @@
 import { useState } from 'react'
 import { useApp } from '../contexts/AppContext'
 
+const COULEURS = ['#6C63FF','#FF6584','#43B97F','#F9A825','#29B6F6','#FF7043','#AB47BC','#26A69A']
+
+function PieChart({ donnees, total, symbole }) {
+  if (!donnees.length) return null
+
+  const cx = 80, cy = 80, r = 60, ri = 34
+
+  const arcs = donnees.length === 1
+    ? [{ ...donnees[0], type: 'full', couleur: COULEURS[0] }]
+    : (() => {
+        let angle = -Math.PI / 2
+        return donnees.map((d, i) => {
+          const portion = d.montant / total
+          const a0 = angle
+          const a1 = angle + portion * 2 * Math.PI
+          angle = a1
+          const c0 = Math.cos(a0), s0 = Math.sin(a0)
+          const c1 = Math.cos(a1), s1 = Math.sin(a1)
+          const grand = portion > 0.5 ? 1 : 0
+          const path = `M${cx+r*c0} ${cy+r*s0} A${r} ${r} 0 ${grand} 1 ${cx+r*c1} ${cy+r*s1} L${cx+ri*c1} ${cy+ri*s1} A${ri} ${ri} 0 ${grand} 0 ${cx+ri*c0} ${cy+ri*s0}Z`
+          return { ...d, type: 'arc', path, couleur: COULEURS[i % COULEURS.length] }
+        })
+      })()
+
+  return (
+    <div className="pie-wrapper">
+      <svg viewBox="0 0 160 160" className="pie-svg">
+        {arcs.map(a =>
+          a.type === 'full'
+            ? <circle key={a.cat} cx={cx} cy={cy} r={(r+ri)/2} fill="none" stroke={a.couleur} strokeWidth={r-ri} />
+            : <path key={a.cat} d={a.path} fill={a.couleur} />
+        )}
+        <text x="80" y="76" textAnchor="middle" fill="#f9fafb" fontSize="13" fontWeight="800" fontFamily="sans-serif">
+          {total.toLocaleString('fr-FR')}
+        </text>
+        <text x="80" y="92" textAnchor="middle" fill="#9ca3af" fontSize="11" fontFamily="sans-serif">
+          {symbole}
+        </text>
+      </svg>
+      <div className="pie-legende">
+        {arcs.map(a => (
+          <div key={a.cat} className="pie-legende-item">
+            <span className="pie-dot" style={{ background: a.couleur }} />
+            <span className="pie-cat">{a.cat}</span>
+            <span className="pie-val">{a.montant.toLocaleString('fr-FR')} {symbole}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function DetailDrawer({ depense, onClose, onSupprimer, symboleDevise }) {
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -45,34 +97,47 @@ function DetailDrawer({ depense, onClose, onSupprimer, symboleDevise }) {
 
 export default function Depenses() {
   const { depenses, supprimerDepense, symboleDevise } = useApp()
-  const [dateDebut,  setDateDebut]  = useState('')
-  const [dateFin,    setDateFin]    = useState('')
-  const [selectee,   setSelectee]   = useState(null)
+  const [dateDebut,       setDateDebut]       = useState('')
+  const [dateFin,         setDateFin]         = useState('')
+  const [categorieFiltre, setCategorieFiltre] = useState('')
+  const [selectee,        setSelectee]        = useState(null)
 
   const enregistrees = depenses.filter(d => !d.brouillon)
 
-  const filtrees = enregistrees.filter(d => {
+  const filtreesDate = enregistrees.filter(d => {
     if (dateDebut && d.date < dateDebut) return false
     if (dateFin   && d.date > dateFin)   return false
     return true
   })
 
+  const filtrees = categorieFiltre
+    ? filtreesDate.filter(d => d.categorie === categorieFiltre)
+    : filtreesDate
+
   const total = filtrees.reduce((s, d) => s + Number(d.montant), 0)
 
-  const totauxParCategorie = filtrees.reduce((acc, d) => {
+  const totauxParCategorie = filtreesDate.reduce((acc, d) => {
     acc[d.categorie] = (acc[d.categorie] || 0) + Number(d.montant)
     return acc
   }, {})
 
-  const effacerFiltre = () => { setDateDebut(''); setDateFin('') }
+  const totalGlobal    = filtreesDate.reduce((s, d) => s + Number(d.montant), 0)
+  const categoriesDispo = Object.keys(totauxParCategorie).sort()
+
+  const donneesPie = Object.entries(totauxParCategorie)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, montant]) => ({ cat, montant }))
+
+  const effacerFiltres = () => { setDateDebut(''); setDateFin(''); setCategorieFiltre('') }
+  const aFiltres = dateDebut || dateFin || categorieFiltre
 
   return (
     <div className="page">
       <section className="section">
         <div className="section-header">
-          <h2 className="section-title">Filtrer par date</h2>
-          {(dateDebut || dateFin) && (
-            <button className="btn-ghost" onClick={effacerFiltre}>Effacer</button>
+          <h2 className="section-title">Filtrer</h2>
+          {aFiltres && (
+            <button className="btn-ghost" onClick={effacerFiltres}>Effacer</button>
           )}
         </div>
         <div className="form-row">
@@ -85,25 +150,27 @@ export default function Depenses() {
             <input type="date" value={dateFin} onChange={e => setDateFin(e.target.value)} />
           </div>
         </div>
+        {categoriesDispo.length > 1 && (
+          <div className="field">
+            <label>Catégorie</label>
+            <select value={categorieFiltre} onChange={e => setCategorieFiltre(e.target.value)}>
+              <option value="">Toutes les catégories</option>
+              {categoriesDispo.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </section>
 
       <section className="section">
         <div className="total-card">
-          <div className="total-label">Total</div>
+          <div className="total-label">Total{categorieFiltre ? ` · ${categorieFiltre}` : ''}</div>
           <div className="total-montant">{total.toLocaleString('fr-FR')} {symboleDevise}</div>
         </div>
 
-        {Object.keys(totauxParCategorie).length > 1 && (
-          <div className="categories-totaux">
-            {Object.entries(totauxParCategorie)
-              .sort((a, b) => b[1] - a[1])
-              .map(([cat, montant]) => (
-                <div key={cat} className="categorie-total">
-                  <span>{cat}</span>
-                  <span>{montant.toLocaleString('fr-FR')} {symboleDevise}</span>
-                </div>
-              ))}
-          </div>
+        {donneesPie.length > 1 && !categorieFiltre && (
+          <PieChart donnees={donneesPie} total={totalGlobal} symbole={symboleDevise} />
         )}
       </section>
 
