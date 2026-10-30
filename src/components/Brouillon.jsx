@@ -1,11 +1,12 @@
 import { useApp } from '../contexts/AppContext'
+import { sommeMontants } from '../lib/montants'
 import FormDepense from './FormDepense'
 
 export default function Brouillon() {
   const { depenses, ajouterDepense, validerBrouillon, supprimerDepense, symboleDevise } = useApp()
 
   const brouillons = depenses.filter(d => d.brouillon)
-  const sousTotal  = brouillons.reduce((s, d) => s + Number(d.montant), 0)
+  const sousTotal  = sommeMontants(brouillons)
 
   const ajouterEnBrouillon = (data) => ajouterDepense({ ...data, brouillon: true })
   const enregistrer        = (data) => ajouterDepense({ ...data, brouillon: false })
@@ -13,7 +14,6 @@ export default function Brouillon() {
   return (
     <div className="page">
       <section className="section">
-        <h2 className="section-title">Nouvelle entrée</h2>
         <FormDepense
           onSubmit={ajouterEnBrouillon}
           submitLabel="Ajouter au brouillon"
@@ -51,7 +51,7 @@ export default function Brouillon() {
                     >✓</button>
                     <button
                       className="btn-icon"
-                      onClick={() => supprimerDepense(d.id)}
+                      onClick={() => { if (confirm('Supprimer ce brouillon ?')) supprimerDepense(d.id) }}
                       title="Supprimer"
                     >✕</button>
                   </div>

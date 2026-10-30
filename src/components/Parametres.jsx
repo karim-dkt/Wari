@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useApp } from '../contexts/AppContext'
 import { CATEGORIES_PAR_DEFAUT } from '../contexts/AppContext'
+import Affiche from './Affiche'
 
 export default function Parametres() {
   const { signOut, user } = useAuth()
@@ -42,6 +43,8 @@ export default function Parametres() {
 
   return (
     <div className="page">
+      <Affiche label="Devise du compte" valeur={devise} />
+
       <section className="section">
         <h2 className="section-title">Compte</h2>
         <p className="user-email">{user.email}</p>
@@ -50,6 +53,9 @@ export default function Parametres() {
 
       <section className="section">
         <h2 className="section-title">Devise</h2>
+        <p className="note">
+          S'applique à tout le compte. Les montants existants ne sont pas convertis.
+        </p>
         <div className="devise-grid">
           {DEVISES.map(d => (
             <button
@@ -86,7 +92,7 @@ export default function Parametres() {
                   <>
                     <span>{cat}</span>
                     <div className="item-actions">
-                      <button className="btn-icon edit" onClick={() => handleCommencerEdition(cat)} title="Renommer">✏</button>
+                      <button className="btn-icon edit" onClick={() => handleCommencerEdition(cat)} title="Renommer">✎</button>
                       <button className="btn-icon" onClick={() => supprimerCategorie(cat)} title="Supprimer">✕</button>
                     </div>
                   </>

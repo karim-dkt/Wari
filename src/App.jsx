@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
-import { AppProvider } from './contexts/AppContext'
+import { AppProvider, useApp } from './contexts/AppContext'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
 import Auth from './components/Auth'
 import Navigation from './components/Navigation'
@@ -9,6 +9,32 @@ import Depenses from './components/Depenses'
 import Prets from './components/Prets'
 import Recettes from './components/Recettes'
 import Parametres from './components/Parametres'
+
+function ContenuOnglet({ onglet }) {
+  const { loading, erreur, effacerErreur } = useApp()
+
+  return (
+    <>
+      {erreur && (
+        <div className="erreur-banner" role="alert">
+          <span>{erreur}</span>
+          <button className="btn-icon" onClick={effacerErreur} aria-label="Fermer">✕</button>
+        </div>
+      )}
+      <main className="app-main">
+        {loading ? <p className="vide">Chargement…</p> : (
+          <>
+            {onglet === 'brouillon'   && <Brouillon />}
+            {onglet === 'depenses'    && <Depenses />}
+            {onglet === 'prets'       && <Prets />}
+            {onglet === 'recettes'    && <Recettes />}
+            {onglet === 'parametres'  && <Parametres />}
+          </>
+        )}
+      </main>
+    </>
+  )
+}
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -27,23 +53,17 @@ export default function App() {
 
   return (
     <AppProvider>
-      <div className="app">
+      <div className="app" data-onglet={onglet}>
         <header className="app-header">
           <h1 className="app-title">Wari</h1>
           {!isOnline && <span className="offline-badge">Hors ligne</span>}
         </header>
         {!isOnline && (
           <div className="offline-banner">
-            Hors connexion — affichage des données en cache
+            Hors connexion — données en cache, saisie indisponible
           </div>
         )}
-        <main className="app-main">
-          {onglet === 'brouillon'   && <Brouillon />}
-          {onglet === 'depenses'    && <Depenses />}
-          {onglet === 'prets'       && <Prets />}
-          {onglet === 'recettes'    && <Recettes />}
-          {onglet === 'parametres'  && <Parametres />}
-        </main>
+        <ContenuOnglet onglet={onglet} />
         <Navigation onglet={onglet} setOnglet={setOnglet} />
       </div>
     </AppProvider>

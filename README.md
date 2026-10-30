@@ -9,10 +9,10 @@ PWA de gestion du quotidien, conçue pour mobile.
 - Catégories personnalisables
 - Historique filtrable par date
 - Totaux par catégorie
-- Multi-devises
+- Une devise par compte, au choix (MAD, XOF, EUR, USD), sans conversion
 
 ### Prêts
-- Suivi des prêts avec statut (en attente / remboursé)
+- Suivi des prêts avec statut (en attente / remboursé) et paiements partiels
 
 ### Recettes
 - Ajout de recettes avec tags (Soirée / Midi / Rapide / Rassasiant) et temps de préparation
@@ -22,7 +22,7 @@ PWA de gestion du quotidien, conçue pour mobile.
 - Bouton aléatoire "Je cuisine ça ce soir"
 
 ### Général
-- Fonctionne hors ligne (Service Worker)
+- Consultation hors ligne (Service Worker) ; la saisie nécessite une connexion
 - Synchronisation cloud via Supabase
 
 ## Stack
@@ -60,7 +60,7 @@ Chaque push sur `main` déclenche automatiquement le build et le déploiement vi
 
 ## Utilisation sur mobile
 
-Ouvre [https://karim-dkt.github.io/Wari/](http://agsv-app.me/Wari/) dans ton navigateur mobile et installe l'app :
+Ouvre [https://karim-dkt.github.io/Wari/](https://karim-dkt.github.io/Wari/) dans ton navigateur mobile et installe l'app :
 
 - **Android** : Chrome → menu ⋮ → *Ajouter à l'écran d'accueil*
 - **iOS** : Safari → partage ⬆ → *Sur l'écran d'accueil*

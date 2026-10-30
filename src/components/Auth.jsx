@@ -1,5 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { TROUS } from '../lib/semailles'
+import Plateau from './Plateau'
+
+// Position de départ du jeu : quatre graines dans chaque trou
+const DEPART = Array(TROUS).fill(4)
 
 export default function Auth() {
   const { signIn, signUp } = useAuth()
@@ -29,9 +34,12 @@ export default function Auth() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <div className="auth-affiche">
         <h1 className="auth-logo">Wari</h1>
         <p className="auth-subtitle">Suivi de dépenses personnelles</p>
+        <Plateau trous={DEPART} />
+      </div>
+      <div className="auth-card">
 
         <div className="auth-tabs">
           <button

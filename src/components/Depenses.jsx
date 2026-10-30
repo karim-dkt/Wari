@@ -1,57 +1,9 @@
 import { useState } from 'react'
 import { useApp } from '../contexts/AppContext'
-
-const COULEURS = ['#6C63FF','#FF6584','#43B97F','#F9A825','#29B6F6','#FF7043','#AB47BC','#26A69A']
-
-function PieChart({ donnees, total, symbole }) {
-  if (!donnees.length) return null
-
-  const cx = 80, cy = 80, r = 60, ri = 34
-
-  const arcs = donnees.length === 1
-    ? [{ ...donnees[0], type: 'full', couleur: COULEURS[0] }]
-    : (() => {
-        let angle = -Math.PI / 2
-        return donnees.map((d, i) => {
-          const portion = d.montant / total
-          const a0 = angle
-          const a1 = angle + portion * 2 * Math.PI
-          angle = a1
-          const c0 = Math.cos(a0), s0 = Math.sin(a0)
-          const c1 = Math.cos(a1), s1 = Math.sin(a1)
-          const grand = portion > 0.5 ? 1 : 0
-          const path = `M${cx+r*c0} ${cy+r*s0} A${r} ${r} 0 ${grand} 1 ${cx+r*c1} ${cy+r*s1} L${cx+ri*c1} ${cy+ri*s1} A${ri} ${ri} 0 ${grand} 0 ${cx+ri*c0} ${cy+ri*s0}Z`
-          return { ...d, type: 'arc', path, couleur: COULEURS[i % COULEURS.length] }
-        })
-      })()
-
-  return (
-    <div className="pie-wrapper">
-      <svg viewBox="0 0 160 160" className="pie-svg">
-        {arcs.map(a =>
-          a.type === 'full'
-            ? <circle key={a.cat} cx={cx} cy={cy} r={(r+ri)/2} fill="none" stroke={a.couleur} strokeWidth={r-ri} />
-            : <path key={a.cat} d={a.path} fill={a.couleur} />
-        )}
-        <text x="80" y="76" textAnchor="middle" fill="#f9fafb" fontSize="13" fontWeight="800" fontFamily="sans-serif">
-          {total.toLocaleString('fr-FR')}
-        </text>
-        <text x="80" y="92" textAnchor="middle" fill="#9ca3af" fontSize="11" fontFamily="sans-serif">
-          {symbole}
-        </text>
-      </svg>
-      <div className="pie-legende">
-        {arcs.map(a => (
-          <div key={a.cat} className="pie-legende-item">
-            <span className="pie-dot" style={{ background: a.couleur }} />
-            <span className="pie-cat">{a.cat}</span>
-            <span className="pie-val">{a.montant.toLocaleString('fr-FR')} {symbole}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+import { sommeMontants } from '../lib/montants'
+import { limiterAuxTrous, repartirGraines } from '../lib/semailles'
+import Affiche from './Affiche'
+import Plateau from './Plateau'
 
 function DetailDrawer({ depense, onClose, onSupprimer, symboleDevise }) {
   return (
@@ -63,7 +15,7 @@ function DetailDrawer({ depense, onClose, onSupprimer, symboleDevise }) {
           <button className="btn-icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
         <div className="drawer-montant">
-          {Number(depense.montant).toLocaleString('fr-FR')} {depense.devise}
+          {Number(depense.montant).toLocaleString('fr-FR')} {symboleDevise}
         </div>
         {depense.description && (
           <div className="drawer-detail">
@@ -79,14 +31,10 @@ function DetailDrawer({ depense, onClose, onSupprimer, symboleDevise }) {
           <span className="drawer-label">Heure</span>
           <span className="drawer-value">{depense.heure?.slice(0, 5)}</span>
         </div>
-        <div className="drawer-detail">
-          <span className="drawer-label">Devise</span>
-          <span className="drawer-value">{depense.devise}</span>
-        </div>
         <button
           className="btn-danger"
           style={{ marginTop: '1rem', width: '100%' }}
-          onClick={() => { onSupprimer(depense.id); onClose() }}
+          onClick={() => { if (onSupprimer(depense.id)) onClose() }}
         >
           Supprimer cette dépense
         </button>
@@ -114,25 +62,68 @@ export default function Depenses() {
     ? filtreesDate.filter(d => d.categorie === categorieFiltre)
     : filtreesDate
 
-  const total = filtrees.reduce((s, d) => s + Number(d.montant), 0)
+  const total = sommeMontants(filtrees)
 
   const totauxParCategorie = filtreesDate.reduce((acc, d) => {
     acc[d.categorie] = (acc[d.categorie] || 0) + Number(d.montant)
     return acc
   }, {})
 
-  const totalGlobal    = filtreesDate.reduce((s, d) => s + Number(d.montant), 0)
   const categoriesDispo = Object.keys(totauxParCategorie).sort()
 
-  const donneesPie = Object.entries(totauxParCategorie)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cat, montant]) => ({ cat, montant }))
+  const trous = limiterAuxTrous(
+    Object.entries(totauxParCategorie)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, montant]) => ({ cat, montant }))
+  )
+  const graines = repartirGraines(trous.map(t => t.montant))
+
+  const choisirTrou = (i) => {
+    if (!trous[i].groupe) setCategorieFiltre(trous[i].cat)
+  }
+
+  const supprimer = (id) => {
+    if (!confirm('Supprimer cette dépense ?')) return false
+    supprimerDepense(id)
+    return true
+  }
 
   const effacerFiltres = () => { setDateDebut(''); setDateFin(''); setCategorieFiltre('') }
   const aFiltres = dateDebut || dateFin || categorieFiltre
 
   return (
     <div className="page">
+      <Affiche
+        label={categorieFiltre ? `Total · ${categorieFiltre}` : 'Total'}
+        mention={symboleDevise}
+        valeur={total.toLocaleString('fr-FR')}
+      >
+        {trous.length > 0 && !categorieFiltre && (
+          <Plateau trous={graines} onChoisir={choisirTrou} />
+        )}
+      </Affiche>
+
+      {trous.length > 0 && !categorieFiltre && (
+        <section className="section">
+          <h2 className="section-title">48 graines réparties par catégorie</h2>
+          <ol className="legende">
+            {trous.map((t, i) => (
+              <li key={t.cat}>
+                <button
+                  className="legende-item"
+                  onClick={() => choisirTrou(i)}
+                  disabled={t.groupe}
+                >
+                  <span className="legende-graines">{graines[i]}</span>
+                  <span className="legende-cat">{t.cat}</span>
+                  <span className="legende-val">{t.montant.toLocaleString('fr-FR')}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       <section className="section">
         <div className="section-header">
           <h2 className="section-title">Filtrer</h2>
@@ -160,17 +151,6 @@ export default function Depenses() {
               ))}
             </select>
           </div>
-        )}
-      </section>
-
-      <section className="section">
-        <div className="total-card">
-          <div className="total-label">Total{categorieFiltre ? ` · ${categorieFiltre}` : ''}</div>
-          <div className="total-montant">{total.toLocaleString('fr-FR')} {symboleDevise}</div>
-        </div>
-
-        {donneesPie.length > 1 && !categorieFiltre && (
-          <PieChart donnees={donneesPie} total={totalGlobal} symbole={symboleDevise} />
         )}
       </section>
 
@@ -206,7 +186,7 @@ export default function Depenses() {
                   </span>
                   <button
                     className="btn-icon"
-                    onClick={e => { e.stopPropagation(); supprimerDepense(d.id) }}
+                    onClick={e => { e.stopPropagation(); supprimer(d.id) }}
                     title="Supprimer"
                   >✕</button>
                 </div>
@@ -220,7 +200,7 @@ export default function Depenses() {
         <DetailDrawer
           depense={selectee}
           onClose={() => setSelectee(null)}
-          onSupprimer={supprimerDepense}
+          onSupprimer={supprimer}
           symboleDevise={symboleDevise}
         />
       )}

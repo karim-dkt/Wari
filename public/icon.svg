@@ -1,18 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#6C63FF"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="url(#g)"/>
-  <text
-    x="256" y="368"
-    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="288"
-    font-weight="900"
-    text-anchor="middle"
-    fill="white"
-    letter-spacing="-8"
-  >W</text>
+  <rect width="512" height="512" fill="#F6B40E"/>
+  <g fill="#14110F">
+    <circle cx="136" cy="176" r="84"/><circle cx="376" cy="176" r="84"/>
+    <circle cx="136" cy="336" r="84"/><circle cx="376" cy="336" r="84"/>
+  </g>
+  <g fill="#F2EBDD">
+    <circle cx="136" cy="176" r="22"/>
+    <circle cx="346" cy="176" r="22"/><circle cx="406" cy="176" r="22"/>
+    <circle cx="106" cy="336" r="22"/><circle cx="166" cy="336" r="22"/><circle cx="136" cy="290" r="22"/>
+    <circle cx="346" cy="306" r="22"/><circle cx="406" cy="306" r="22"/><circle cx="346" cy="366" r="22"/><circle cx="406" cy="366" r="22"/>
+  </g>
 </svg>

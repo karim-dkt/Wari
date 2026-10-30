@@ -1,19 +1,55 @@
 import { useState } from 'react'
 import { useApp } from '../contexts/AppContext'
+import { dateLocale } from '../lib/dates'
+import { resteDu, sommeMontants } from '../lib/montants'
+import Affiche from './Affiche'
 
-function PretDrawer({ pretId, prets, paiementsPret, onClose, onAjouterPaiement, onSupprimerPaiement, onRembourse, symbole }) {
+const STATUTS = { 'remboursé': 'Remboursé', en_attente: 'En attente' }
+const GRAINES_PRET = 12
+
+// Une graine par douzième du prêt : la première dès le premier paiement,
+// la dernière seulement quand tout est remboursé
+function Semis({ progression }) {
+  const pleines = progression >= 100
+    ? GRAINES_PRET
+    : Math.min(GRAINES_PRET - 1, Math.ceil((progression / 100) * GRAINES_PRET))
+
+  return (
+    <div
+      className="semis"
+      role="progressbar"
+      aria-label="Part remboursée"
+      aria-valuenow={Math.round(progression)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      {Array.from({ length: GRAINES_PRET }, (_, i) => (
+        <span key={i} className={i < pleines ? 'pleine' : undefined} />
+      ))}
+    </div>
+  )
+}
+
+// Le reste dû est enregistré comme paiement : on le fait confirmer
+const confirmerSolde = (restant, symbole) => confirm(
+  restant > 0
+    ? `Solder ce prêt ? Un paiement de ${restant.toLocaleString('fr-FR')} ${symbole} sera enregistré.`
+    : 'Marquer ce prêt comme remboursé ?'
+)
+
+function PretDrawer({ pretId, prets, paiementsPret, onClose, onAjouterPaiement, onSupprimerPaiement, onRembourse, onRouvrir, symbole }) {
   const pret     = prets.find(p => p.id === pretId)
   const paiements = paiementsPret.filter(p => p.pret_id === pretId)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = dateLocale()
   const [form,    setForm]    = useState({ montant: '', date: today, note: '' })
   const [loading, setLoading] = useState(false)
   const [erreur,  setErreur]  = useState('')
 
   if (!pret) return null
 
-  const totalPaye  = paiements.reduce((s, p) => s + Number(p.montant), 0)
-  const restant    = Math.max(0, Number(pret.montant) - totalPaye)
+  const totalPaye  = sommeMontants(paiements)
+  const restant    = resteDu(pret.montant, paiements)
   const progression = Math.min(100, (totalPaye / Number(pret.montant)) * 100)
 
   const handleAjouter = async (e) => {
@@ -40,7 +76,7 @@ function PretDrawer({ pretId, prets, paiementsPret, onClose, onAjouterPaiement, 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span className="tag">{pret.personne}</span>
             <span className={`pret-statut${pret.statut === 'remboursé' ? ' rembourse' : ' en-attente'}`}>
-              {pret.statut === 'remboursé' ? '✓ Remboursé' : '⏳ En attente'}
+              {STATUTS[pret.statut]}
             </span>
           </div>
           <button className="btn-icon" onClick={onClose}>✕</button>
@@ -65,9 +101,7 @@ function PretDrawer({ pretId, prets, paiementsPret, onClose, onAjouterPaiement, 
           </div>
         </div>
 
-        <div className="pret-progress">
-          <div className="pret-progress-bar" style={{ width: `${progression}%` }} />
-        </div>
+        <Semis progression={progression} />
 
         {pret.description && (
           <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
@@ -116,7 +150,7 @@ function PretDrawer({ pretId, prets, paiementsPret, onClose, onAjouterPaiement, 
                   <div className="item-montant">{Number(p.montant).toLocaleString('fr-FR')} {symbole}</div>
                   <div className="item-date">{p.date}{p.note ? ` · ${p.note}` : ''}</div>
                 </div>
-                <button className="btn-icon" onClick={() => onSupprimerPaiement(p.id)} title="Supprimer">✕</button>
+                <button className="btn-icon" onClick={() => { if (confirm('Supprimer ce paiement ?')) onSupprimerPaiement(p.id) }} title="Supprimer">✕</button>
               </div>
             ))}
           </div>
@@ -126,9 +160,23 @@ function PretDrawer({ pretId, prets, paiementsPret, onClose, onAjouterPaiement, 
           <button
             className="btn-danger"
             style={{ marginTop: '1rem', width: '100%' }}
-            onClick={() => { onRembourse(pret.id); onClose() }}
+            onClick={() => {
+              if (!confirmerSolde(restant, symbole)) return
+              onRembourse(pret.id)
+              onClose()
+            }}
           >
             Marquer comme remboursé
+          </button>
+        )}
+
+        {pret.statut === 'remboursé' && restant > 0 && (
+          <button
+            className="btn-ghost"
+            style={{ marginTop: '1rem', width: '100%' }}
+            onClick={() => onRouvrir(pret.id)}
+          >
+            Rouvrir ce prêt
           </button>
         )}
       </div>
@@ -139,12 +187,12 @@ function PretDrawer({ pretId, prets, paiementsPret, onClose, onAjouterPaiement, 
 export default function Prets() {
   const {
     prets, paiementsPret,
-    ajouterPret, marquerRembourse, supprimerPret,
+    ajouterPret, marquerRembourse, rouvrirPret, supprimerPret,
     ajouterPaiementPret, supprimerPaiementPret,
     symboleDevise,
   } = useApp()
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = dateLocale()
   const [form,           setForm]           = useState({ personne: '', montant: '', date: today, description: '' })
   const [loading,        setLoading]        = useState(false)
   const [erreur,         setErreur]         = useState('')
@@ -152,12 +200,11 @@ export default function Prets() {
 
   const enAttente = prets.filter(p => p.statut === 'en_attente')
 
-  const totalRestant = enAttente.reduce((s, p) => {
-    const paye = paiementsPret
-      .filter(pp => pp.pret_id === p.id)
-      .reduce((a, pp) => a + Number(pp.montant), 0)
-    return s + Math.max(0, Number(p.montant) - paye)
-  }, 0)
+  const paiementsDe = (id) => paiementsPret.filter(pp => pp.pret_id === id)
+
+  const totalRestant = sommeMontants(
+    enAttente.map(p => ({ montant: resteDu(p.montant, paiementsDe(p.id)) }))
+  )
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -181,19 +228,17 @@ export default function Prets() {
 
   return (
     <div className="page">
-      <section className="section">
-        <div className="total-card">
-          <div className="total-label">Total restant à recevoir</div>
-          <div className="total-montant">
-            {totalRestant.toLocaleString('fr-FR')} {symboleDevise}
-          </div>
-        </div>
+      <Affiche
+        label="Reste à recevoir"
+        mention={symboleDevise}
+        valeur={totalRestant.toLocaleString('fr-FR')}
+      >
         {enAttente.length !== prets.length && (
           <p className="prets-summary">
             {prets.length - enAttente.length} prêt{prets.length - enAttente.length > 1 ? 's' : ''} remboursé{prets.length - enAttente.length > 1 ? 's' : ''}
           </p>
         )}
-      </section>
+      </Affiche>
 
       <section className="section">
         <h2 className="section-title">Nouveau prêt</h2>
@@ -244,8 +289,8 @@ export default function Prets() {
         ) : (
           <ul className="liste-depenses">
             {prets.map(p => {
-              const paye    = paiementsPret.filter(pp => pp.pret_id === p.id).reduce((s, pp) => s + Number(pp.montant), 0)
-              const restant = Math.max(0, Number(p.montant) - paye)
+              const paye    = sommeMontants(paiementsDe(p.id))
+              const restant = resteDu(p.montant, paiementsDe(p.id))
               return (
                 <li
                   key={p.id}
@@ -256,7 +301,7 @@ export default function Prets() {
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <span className="tag">{p.personne}</span>
                       <span className={`pret-statut${p.statut === 'remboursé' ? ' rembourse' : ' en-attente'}`}>
-                        {p.statut === 'remboursé' ? '✓ Remboursé' : '⏳ En attente'}
+                        {STATUTS[p.statut]}
                       </span>
                     </div>
                     {p.description && <span className="item-description">{p.description}</span>}
@@ -275,13 +320,13 @@ export default function Prets() {
                       {p.statut === 'en_attente' && (
                         <button
                           className="btn-icon success"
-                          onClick={e => { e.stopPropagation(); marquerRembourse(p.id) }}
+                          onClick={e => { e.stopPropagation(); if (confirmerSolde(restant, symboleDevise)) marquerRembourse(p.id) }}
                           title="Marquer comme remboursé"
                         >✓</button>
                       )}
                       <button
                         className="btn-icon"
-                        onClick={e => { e.stopPropagation(); supprimerPret(p.id) }}
+                        onClick={e => { e.stopPropagation(); if (confirm('Supprimer ce prêt et ses paiements ?')) supprimerPret(p.id) }}
                         title="Supprimer"
                       >✕</button>
                     </div>
@@ -302,6 +347,7 @@ export default function Prets() {
           onAjouterPaiement={ajouterPaiementPret}
           onSupprimerPaiement={supprimerPaiementPret}
           onRembourse={marquerRembourse}
+          onRouvrir={rouvrirPret}
           symbole={symboleDevise}
         />
       )}

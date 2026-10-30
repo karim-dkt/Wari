@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { dateLocale } from '../lib/dates'
+import { resteDu } from '../lib/montants'
 
 export const CATEGORIES_PAR_DEFAUT = [
   'Alimentation', 'Transport', 'Logement', 'Loisirs', 'Santé', 'Autre',
@@ -13,6 +15,19 @@ export const DEVISES = [
   { code: 'EUR', symbole: '€' },
   { code: 'USD', symbole: '$' },
 ]
+
+const TAILLE_PAGE = 1000
+
+// Supabase plafonne chaque réponse : on enchaîne les pages jusqu'à tout récupérer
+const chargerToutesLesLignes = async (requete) => {
+  const lignes = []
+  for (;;) {
+    const { data, error } = await requete().range(lignes.length, lignes.length + TAILLE_PAGE - 1)
+    if (error) return { data: null, error }
+    lignes.push(...data)
+    if (data.length < TAILLE_PAGE) return { data: lignes, error: null }
+  }
+}
 
 const AppContext = createContext(null)
 
@@ -28,17 +43,18 @@ export function AppProvider({ children }) {
   const [categoriesCustom, setCategoriesCustom] = useState([])
   const [devise,           setDevise]           = useState('MAD')
   const [loading,          setLoading]          = useState(true)
+  const [erreur,           setErreur]           = useState('')
 
   const chargerDonnees = useCallback(async () => {
     if (!user) return
-    setLoading(true)
 
     const [depRes, catRes, prefRes, pretRes, recRes, paiRes] = await Promise.all([
-      supabase.from('depenses')
+      chargerToutesLesLignes(() => supabase.from('depenses')
         .select('*')
         .eq('user_id', user.id)
         .order('date', { ascending: false })
-        .order('heure', { ascending: false }),
+        .order('heure', { ascending: false })
+        .order('id')),
       supabase.from('categories')
         .select('*')
         .eq('user_id', user.id),
@@ -46,19 +62,25 @@ export function AppProvider({ children }) {
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle(),
-      supabase.from('prets')
+      chargerToutesLesLignes(() => supabase.from('prets')
         .select('*')
         .eq('user_id', user.id)
-        .order('date', { ascending: false }),
-      supabase.from('recettes')
+        .order('date', { ascending: false })
+        .order('id')),
+      chargerToutesLesLignes(() => supabase.from('recettes')
         .select('*, ingredients(*)')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false }),
-      supabase.from('paiements_pret')
+        .order('created_at', { ascending: false })
+        .order('id')),
+      chargerToutesLesLignes(() => supabase.from('paiements_pret')
         .select('*')
         .eq('user_id', user.id)
-        .order('date', { ascending: false }),
+        .order('date', { ascending: false })
+        .order('id')),
     ])
+
+    const echec = [depRes, catRes, prefRes, pretRes, recRes, paiRes].find(r => r.error)
+    setErreur(echec ? `Chargement incomplet : ${echec.error.message}` : '')
 
     if (depRes.data)  setDepenses(depRes.data)
     if (catRes.data)  setCategoriesCustom(catRes.data.map(c => c.nom))
@@ -80,6 +102,7 @@ export function AppProvider({ children }) {
       setRecettes([])
       setCategoriesCustom([])
       setDevise('MAD')
+      setErreur('')
       setLoading(false)
     }
   }, [user, chargerDonnees])
@@ -95,6 +118,11 @@ export function AppProvider({ children }) {
     ...CATEGORIES_PAR_DEFAUT,
     ...categoriesCustom.filter(c => !CATEGORIES_PAR_DEFAUT.includes(c)),
   ]
+
+  const signaler = (error) => {
+    if (error) setErreur(`Action impossible : ${error.message}`)
+    return { error }
+  }
 
   const ajouterDepense = async (data) => {
     const { data: row, error } = await supabase
@@ -114,13 +142,13 @@ export function AppProvider({ children }) {
       .select()
       .single()
     if (!error && row) setDepenses(prev => prev.map(d => d.id === id ? row : d))
-    return { error }
+    return signaler(error)
   }
 
   const supprimerDepense = async (id) => {
     const { error } = await supabase.from('depenses').delete().eq('id', id)
     if (!error) setDepenses(prev => prev.filter(d => d.id !== id))
-    return { error }
+    return signaler(error)
   }
 
   const ajouterCategorie = async (nom) => {
@@ -134,7 +162,7 @@ export function AppProvider({ children }) {
     const { error } = await supabase.from('categories').delete()
       .eq('user_id', user.id).eq('nom', nom)
     if (!error) setCategoriesCustom(prev => prev.filter(c => c !== nom))
-    return { error }
+    return signaler(error)
   }
 
   const renommerCategorie = async (ancienNom, nouveauNom) => {
@@ -146,10 +174,17 @@ export function AppProvider({ children }) {
       .eq('user_id', user.id)
       .eq('nom', ancienNom)
     if (error) return { error }
-    await supabase.from('depenses')
+    const { error: depErr } = await supabase.from('depenses')
       .update({ categorie: trim })
       .eq('user_id', user.id)
       .eq('categorie', ancienNom)
+    if (depErr) {
+      await supabase.from('categories')
+        .update({ nom: ancienNom })
+        .eq('user_id', user.id)
+        .eq('nom', trim)
+      return { error: depErr }
+    }
     setCategoriesCustom(prev => prev.map(c => c === ancienNom ? trim : c))
     setDepenses(prev => prev.map(d => d.categorie === ancienNom ? { ...d, categorie: trim } : d))
     return { error: null }
@@ -159,7 +194,7 @@ export function AppProvider({ children }) {
     const { error } = await supabase.from('preferences')
       .upsert({ user_id: user.id, devise: nouvelleDevise })
     if (!error) setDevise(nouvelleDevise)
-    return { error }
+    return signaler(error)
   }
 
   const ajouterPret = async (data) => {
@@ -172,15 +207,31 @@ export function AppProvider({ children }) {
     return { data: row, error }
   }
 
-  const marquerRembourse = async (id) => {
+  const changerStatutPret = async (id, statut) => {
     const { data: row, error } = await supabase
       .from('prets')
-      .update({ statut: 'remboursé' })
+      .update({ statut })
       .eq('id', id)
       .select()
       .single()
     if (!error && row) setPrets(prev => prev.map(p => p.id === id ? row : p))
-    return { error }
+    return signaler(error)
+  }
+
+  // Le reste dû est enregistré comme paiement pour que l'historique reste juste
+  const marquerRembourse = async (id) => {
+    const pret    = prets.find(p => p.id === id)
+    const restant = resteDu(pret.montant, paiementsPret.filter(p => p.pret_id === id))
+    if (restant > 0) {
+      const { data: row, error } = await supabase
+        .from('paiements_pret')
+        .insert({ pret_id: id, user_id: user.id, montant: restant, date: dateLocale(), note: 'Solde' })
+        .select()
+        .single()
+      if (error) return signaler(error)
+      setPaiementsPret(prev => [row, ...prev])
+    }
+    return changerStatutPret(id, 'remboursé')
   }
 
   const supprimerPret = async (id) => {
@@ -189,7 +240,7 @@ export function AppProvider({ children }) {
       setPrets(prev => prev.filter(p => p.id !== id))
       setPaiementsPret(prev => prev.filter(p => p.pret_id !== id))
     }
-    return { error }
+    return signaler(error)
   }
 
   const ajouterPaiementPret = async (pretId, montant, date, note) => {
@@ -203,10 +254,9 @@ export function AppProvider({ children }) {
     const { data: tous } = await supabase
       .from('paiements_pret').select('montant').eq('pret_id', pretId)
     if (tous) {
-      const totalPaye = tous.reduce((s, p) => s + Number(p.montant), 0)
       const pret = prets.find(p => p.id === pretId)
-      if (pret && pret.statut === 'en_attente' && totalPaye >= Number(pret.montant)) {
-        await marquerRembourse(pretId)
+      if (pret && pret.statut === 'en_attente' && resteDu(pret.montant, tous) === 0) {
+        await changerStatutPret(pretId, 'remboursé')
       }
     }
     return { data: row, error: null }
@@ -214,8 +264,15 @@ export function AppProvider({ children }) {
 
   const supprimerPaiementPret = async (id) => {
     const { error } = await supabase.from('paiements_pret').delete().eq('id', id)
-    if (!error) setPaiementsPret(prev => prev.filter(p => p.id !== id))
-    return { error }
+    if (error) return signaler(error)
+    const paiement = paiementsPret.find(p => p.id === id)
+    const restants = paiementsPret.filter(p => p.pret_id === paiement.pret_id && p.id !== id)
+    setPaiementsPret(prev => prev.filter(p => p.id !== id))
+    const pret = prets.find(p => p.id === paiement.pret_id)
+    if (pret.statut === 'remboursé' && resteDu(pret.montant, restants) > 0) {
+      return changerStatutPret(pret.id, 'en_attente')
+    }
+    return { error: null }
   }
 
   const ajouterRecette = async (data, ingredients) => {
@@ -230,7 +287,10 @@ export function AppProvider({ children }) {
       const { error: ingErr } = await supabase
         .from('ingredients')
         .insert(ingredients.map(ing => ({ ...ing, recette_id: row.id })))
-      if (ingErr) return { error: ingErr }
+      if (ingErr) {
+        await supabase.from('recettes').delete().eq('id', row.id)
+        return { error: ingErr }
+      }
     }
 
     const { data: full } = await supabase
@@ -248,13 +308,20 @@ export function AppProvider({ children }) {
       .from('recettes').update(data).eq('id', id)
     if (upErr) return { error: upErr }
 
-    await supabase.from('ingredients').delete().eq('recette_id', id)
+    // Les anciens ingrédients ne sont supprimés qu'une fois les nouveaux enregistrés
+    const anciensIds = recettes.find(r => r.id === id)?.ingredients.map(i => i.id) ?? []
 
     if (ingredients.length > 0) {
       const { error: insErr } = await supabase
         .from('ingredients')
         .insert(ingredients.map(ing => ({ ...ing, recette_id: id })))
       if (insErr) return { error: insErr }
+    }
+
+    if (anciensIds.length > 0) {
+      const { error: delErr } = await supabase
+        .from('ingredients').delete().in('id', anciensIds)
+      if (delErr) return { error: delErr }
     }
 
     const { data: full } = await supabase
@@ -270,7 +337,7 @@ export function AppProvider({ children }) {
   const supprimerRecette = async (id) => {
     const { error } = await supabase.from('recettes').delete().eq('id', id)
     if (!error) setRecettes(prev => prev.filter(r => r.id !== id))
-    return { error }
+    return signaler(error)
   }
 
   const symboleDevise = DEVISES.find(d => d.code === devise)?.symbole ?? devise
@@ -279,11 +346,11 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       depenses, prets, paiementsPret, recettes, categories, categoriesCustom,
       devise, symboleDevise, DEVISES,
-      loading,
+      loading, erreur, effacerErreur: () => setErreur(''),
       chargerDonnees,
       ajouterDepense, validerBrouillon, supprimerDepense,
       ajouterCategorie, supprimerCategorie, renommerCategorie, mettreAJourDevise,
-      ajouterPret, marquerRembourse, supprimerPret,
+      ajouterPret, marquerRembourse, rouvrirPret: (id) => changerStatutPret(id, 'en_attente'), supprimerPret,
       ajouterPaiementPret, supprimerPaiementPret,
       ajouterRecette, modifierRecette, supprimerRecette,
     }}>

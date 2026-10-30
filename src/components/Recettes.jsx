@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../contexts/AppContext'
+import Affiche from './Affiche'
 import FormRecette from './FormRecette'
 
 function coutTotal(ingredients) {
@@ -18,6 +19,7 @@ export default function Recettes() {
   }
 
   const handleSupprimer = async (id) => {
+    if (!confirm('Supprimer cette recette ?')) return
     await supprimerRecette(id)
     setRecetteDetail(null)
   }
@@ -43,17 +45,17 @@ export default function Recettes() {
 
   return (
     <div className="page">
-      {recettes.length > 0 && (
-        <button className="btn-aleatoire" onClick={cuisinerAleatoire}>
-          🎲 Je cuisine ça ce soir
-        </button>
-      )}
+      <Affiche label={`Recette${recettes.length !== 1 ? 's' : ''}`} valeur={recettes.length}>
+        {recettes.length > 0 && (
+          <button className="btn-aleatoire" onClick={cuisinerAleatoire}>
+            Je cuisine ça ce soir
+          </button>
+        )}
+      </Affiche>
 
       <section className="section">
         <div className="section-header">
-          <h2 className="section-title">
-            {recettes.length} recette{recettes.length !== 1 ? 's' : ''}
-          </h2>
+          <h2 className="section-title">Carnet</h2>
           <button className="btn-primary" onClick={() => setModeForm('ajout')}>
             + Ajouter
           </button>
@@ -87,7 +89,7 @@ export default function Recettes() {
                     </div>
                   )}
                   <div className="recette-meta">
-                    {r.temps_preparation && <span>⏱ {r.temps_preparation} min</span>}
+                    {r.temps_preparation && <span>{r.temps_preparation} min</span>}
                     {cout !== null && (
                       <span>~{cout.toLocaleString('fr-FR')} {symboleDevise}</span>
                     )}

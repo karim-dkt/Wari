@@ -13,8 +13,10 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
+      // Les données mises en cache ne doivent pas survivre à la session
+      if (event === 'SIGNED_OUT' && 'caches' in window) caches.delete('wari-data')
     })
 
     return () => subscription.unsubscribe()

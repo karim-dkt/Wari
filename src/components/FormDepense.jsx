@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../contexts/AppContext'
+import { dateLocale } from '../lib/dates'
 
-const todayStr = () => new Date().toISOString().split('T')[0]
 const nowStr   = () => new Date().toTimeString().slice(0, 5)
 
 export default function FormDepense({
@@ -15,7 +15,7 @@ export default function FormDepense({
   const [montant,     setMontant]     = useState('')
   const [description, setDescription] = useState('')
   const [categorie,   setCategorie]   = useState('')
-  const [date,        setDate]        = useState(todayStr)
+  const [date,        setDate]        = useState(dateLocale)
   const [heure,       setHeure]       = useState(nowStr)
   const [erreur,      setErreur]      = useState('')
   const [loadingType, setLoadingType] = useState(null)
@@ -44,7 +44,7 @@ export default function FormDepense({
     setMontant('')
     setDescription('')
     setCategorie('')
-    setDate(todayStr())
+    setDate(dateLocale())
     setHeure(nowStr())
   }
 
@@ -77,29 +77,32 @@ export default function FormDepense({
 
   return (
     <form onSubmit={handleSubmit} className="form-depense">
-      <div className="form-row">
-        <div className="field">
-          <label>Montant ({symboleDevise})</label>
-          <input
-            type="number"
-            value={montant}
-            onChange={e => setMontant(e.target.value)}
-            placeholder="0.00"
-            step="0.01"
-            min="0.01"
-            required
-            inputMode="decimal"
-          />
-        </div>
-        <div className="field">
-          <label>Catégorie</label>
-          <select value={categorie} onChange={e => setCategorie(e.target.value)}>
-            <option value="">Sélectionner…</option>
-            {categories.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
+      <div className="saisie-montant" style={{ '--signes': Math.max(montant.length, 3) }}>
+        <label htmlFor="montant" className="affiche-label">
+          <span>Nouvelle entrée</span>
+          <span>{symboleDevise}</span>
+        </label>
+        <input
+          id="montant"
+          type="number"
+          value={montant}
+          onChange={e => setMontant(e.target.value)}
+          placeholder="0"
+          step="0.01"
+          min="0.01"
+          required
+          inputMode="decimal"
+        />
+      </div>
+
+      <div className="field">
+        <label>Catégorie</label>
+        <select value={categorie} onChange={e => setCategorie(e.target.value)}>
+          <option value="">Sélectionner…</option>
+          {categories.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
       </div>
 
       <div className="field">
