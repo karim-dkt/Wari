@@ -14,5 +14,6 @@ const versionServiceWorker = () => ({
 
 export default defineConfig({
   base: './',
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   plugins: [react(), versionServiceWorker()],
 })
